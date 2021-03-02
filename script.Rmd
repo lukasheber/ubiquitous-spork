@@ -1,0 +1,153 @@
+---
+title: "calcular mcwd"
+Author: "Lucas Heber"
+output:
+  html_document:
+    df_print: paged
+---
+
+Fonte dos dados de precipitação: https://disc.gsfc.nasa.gov/datasets/TRMM_3B43_7/summary
+TRMM (TMPA/3B43) Rainfall Estimate L3 1 month 0.25 degree x 0.25 degree V7 from 1998-01-01 to 2019-12-31 --- em mm hr-¹ com range de 0 - 100. 
+
+Bouding box dos dados baixados (america do sul): xmin = -89.296875, xmax = -33.046875, ymin = -49.875, ymax = 12.897489
+
+Os arquivos .nc4 de precipitação devem estar em alguma pasta no mesmo diretório que esse notebook
+
+# Bibliotecas utilizadas
+```{r message=FALSE, warning=TRUE}
+library(tidyverse)
+library(sf)
+library(raster)
+library(lubridate)
+library(rasterVis)
+library(viridis)
+```
+
+#carregar algumas funções
+```{r}
+source("fun.R")
+```
+
+# criar stack raster dos meses dos periodos, e calcular mcwd
+```{r}
+# Obter caminho dos arquivos de precipitação (.nc4) e escolher o periodo considerado 
+trmm_periodo <- dir.TRMM(inicio.periodo = 0) # numero refere-se ao primeiro mês de um periodo de 12 meses;i.e. jan-dez = 0  ou, fev-jan = 1
+
+#periodos com 12 meses incompletos de dados de precipitação
+(periodo_curto <- map_dbl(trmm_periodo, nrow) %>% `[`(. != 12))
+
+# empilhar os arquivos de precipição em cada periodo de 12 meses
+pilha <- stack.TRMM(trmm_periodo) # a precipitação foi convertida em mm por mês
+
+pilha <- pilha[names(pilha) %in% names(periodo_curto) == FALSE] # remover periodos com precipitação incompleta (menos que doze meses). Retorna 'named numeric(0)' se nenhum mês é removido.
+
+# calcular mcwd para cada periodo (usa 100 por padrão para evapotranspiraçaõ)
+mcwd.periodo <- map(pilha, calc, mcwd.f2)
+```
+
+# criar mascara da area de interese (i.e. amazonia, brazil, cerrado etc)
+```{r}
+shp_area <- st_read("base_layers/Amazonia Legal/UFS_AMZLEG_LLWGS84.shp") # exemplo com shape da amazonia legal
+shp_area <- st_set_crs(shp_area, "WGS84") 
+area.raster <- rasterize(shp_area, mcwd.periodo[[1]])
+area.raster <- calc(area.raster, fun = function(x) x.temp = ifelse(x >= 1, 1, NA))
+```
+
+# Calcular o valor de referencia medio do mcwd (baseline).
+Entretanto, valor de referencia pode ser calculado excluindo anos anormais (ie. elnino/seca) ou mantendo todos os anos
+```{r}
+anos_anormais <- c() # Vetor com anos de elnino/seca/considerados anormais escolhidos
+
+mcwd.periodo.rasterbrick <- brick(mcwd.periodo[names(mcwd.periodo) %in% c(anos_anormais) == FALSE]) # remover anos anormais escolhidos. Se o objeto 'anos_anormais' é vazio nenhum ano é excluido.
+
+mcwd.periodo.rasterbrick <- raster::mask(mcwd.periodo.rasterbrick, area.raster) # recortar raster mcwd usando mascara da área de interesse
+
+sd.mcwd <- calc(mcwd.periodo.rasterbrick, fun = sd)+0.1 # 0.1 para remover divisão por zero; desvio padrao dos valores de referencia de mcwd
+
+mean.mcwd <- calc(mcwd.periodo.rasterbrick, fun = mean) # valor de referencia medio do mcwd
+```
+
+# Calcular: 
+1) delta MCWD (ie. mcwd - mean.mcwd); ou 
+2) Anomalias de MCWD - valores-z: (mcwd - mean.mcwd)/sd.mcwd
+
+"Simply put, a z-score (also called a standard score) gives you an idea of how far from the mean a data point is. But more technically it’s a measure of how many standard deviations below or above the population mean a raw score is."
+(https://www.statisticshowto.com/probability-and-statistics/z-score/)
+
+```{r}
+hh = "anomalia" # Mudar para calculo de 1) "delta" ou 2) "anomalia"
+
+r.mcwd <- delta.anom.mcwd(mcwd.periodo, hh)
+r.mcwd <- brick(r.mcwd[names(r.mcwd)]) %>% raster::mask(area.raster)
+```
+
+Extrair dados de mcwd para coordenadas 
+```{r}
+df <- read.csv("md_example.csv", sep = ";") # coordenadas
+df <- df %>% mutate_at(c("Longitude.Decimal", "Latitude.Decimal"), function(x) x + 0.000001) # tonar cooordenadas mais precisas
+
+tt <- sp::SpatialPointsDataFrame(coords = data.frame(df$Longitude.Decimal, df$Latitude.Decimal), data = data.frame(df$Plot.Code), proj4string = CRS("+proj=longlat +datum=WGS84"))
+
+map_df(mcwd.periodo, extract, SpatialPoints(tt)) %>% mutate(Plot.Code = df$Plot.Code) %>% write.csv(file = "mcwd_anual_coord.csv")
+
+xx <- as.list(r.mcwd)
+names(xx) <- gsub("X", "", names(r.mcwd))
+map_df(xx, extract, SpatialPoints(tt)) %>% mutate(Plot.Code = df$Plot.Code) %>% write.csv(file = paste("mcwd_", hh, "_coord.csv", sep = ""))
+```
+
+# Exportar 
+```{r}
+# salvar geotif com varias bandas (configure o objeto 'hh' de acordo) delta ou anomalia
+writeRaster(r.mcwd, filename = paste("maps/", "mcwd.", hh, ".grid.tif", sep = ""), format = "GTiff", overwrite =  TRUE, options = c("INTERLEAVE=BAND", "COMPRESS=LZW"))
+
+# tif mcwd médio (baseline)
+writeRaster(mean.mcwd, filename = "maps/mcwd_medio_referencia", format = "GTiff", overwrite = TRUE)
+
+# mcwd anual tif # o mcwd representa maximo deficit hidrico acumulado com número abaixo de zero
+writeRaster(mcwd.periodo.rasterbrick, filename = "maps/mcwd_grid.todos.os.anos.tif", format = "GTiff", overwrite = TRUE, options=c("INTERLEAVE=BAND","COMPRESS=LZW"))
+```
+
+# Graficos exploratórios
+```{r dpi=600}
+paleta <- colorRampPalette(c("#C45D30", "#ECA612", "#F7EC07", "#81E900", "#0CCD25", "#1B9B82", "#0E3B65"))
+
+# shape brazil
+shp_br <- st_read("base_layers/estados_brasil/estadosl_2007.shp")
+shp_br <- st_set_crs(shp_br, "WGS84") 
+
+# mcwd médio
+plot(mean.mcwd, col = paleta(256), main = "média dos ultimos 22 anos", ylim = c(-20,15), xlim = c(-80.9, -41.9));plot(shp_br$geometry, add = TRUE)
+
+# mcwd de algum ano
+plot(mcwd.periodo.rasterbrick$X2015, main = "mcwd 2015", col = paleta(256), ylim = c(-20,15), xlim = c(-80.9, -41.9))
+plot(shp_br$geometry, add = TRUE)
+
+# plot
+tcoi <- colorRampPalette(c("#440154FF", "#443A83FF", "#31688EFF", "#21908CFF", "#f2f0f7", "#8FD744FF", "#FDE725FF"))
+
+plot(r.mcwd$X2015, col = tcoi(7), main = paste(hh, "de mcwd para 2015"), ylim = c(-20,15), xlim = c(-80.9, -41.9));plot(shp_br$geometry, add = TRUE)
+```
+
+
+```{r message=FALSE, warning=FALSE, dpi=600}
+world.shp = rgdal::readOGR("base_layers/world_shp/world.shp")
+proj4string(world.shp) = CRS("+proj=longlat +datum=WGS84")
+
+# grafico de delta ou anomalias
+levelplot(r.mcwd, at =  unique(seq(min(r.mcwd@data@min), max(r.mcwd@data@max), length = 50)), ylim=c(-20,15), xlim=c(-80.9, -41.9), 
+          panel = function(...){
+            panel.levelplot(...)
+            sp.lines(world.shp, col = "dimgrey", lwd = 0.5)
+          },
+          col.regions = viridis(100), 
+          names.attr=names(mcwd.periodo), main = hh)
+
+# grafico mcwd da area de interesse
+levelplot(mcwd.periodo.rasterbrick, at = unique(seq(0, min(mcwd.periodo.rasterbrick@data@min), length = 50)), ylim = c(-20,15), xlim = c(-80.9, -41.9), 
+          panel = function(...){
+            panel.levelplot(...)
+            sp.lines(world.shp, col = "dimgrey", lwd = 0.5)
+          },
+          col.regions = paleta(abs(min(mcwd.periodo.rasterbrick@data@min)/10)), 
+          names.attr = names(mcwd.periodo))
+```
