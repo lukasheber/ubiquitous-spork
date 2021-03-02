@@ -6,7 +6,7 @@ output:
     df_print: paged
 ---
 
-Fonte dos dados de precipitação: https://disc.gsfc.nasa.gov/datasets/TRMM_3B43_7/summary
+Source of precipitation data: https://disc.gsfc.nasa.gov/datasets/TRMM_3B43_7/summary
 TRMM (TMPA/3B43) Rainfall Estimate L3 1 month 0.25 degree x 0.25 degree V7 from 1998-01-01 to 2019-12-31 --- em mm hr-¹ com range de 0 - 100. 
 
 Bouding box dos dados baixados (america do sul): xmin = -89.296875, xmax = -33.046875, ymin = -49.875, ymax = 12.897489
