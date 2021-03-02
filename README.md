@@ -1,4 +1,5 @@
 # MCWD
+
 Calculate MCWD mean basealine or for each year using TRMM precipitation data in .nc4 files and if needed also extract MCWD for GPS point coordinates.
 Code for exploratory plots of MCWD Delta or Anomaly is also provided.
 
