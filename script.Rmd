@@ -21,6 +21,7 @@ library(raster)
 library(lubridate)
 library(rasterVis)
 library(viridis)
+library(data.table)
 ```
 
 #carregar algumas funções
