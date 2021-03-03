@@ -64,9 +64,9 @@ dir.TRMM <- function(inicio.periodo){
   return(f) 
 }
 
-delta.anom.mcwd <- function(mcwd.data = NULL, hh = c("delta", "anomalia"))
+delta.anom.mcwd <- function(mcwd.data = NULL, hh = c("Delta", "Anomalia"))
 {
-  if (hh == "delta") {
+  if (hh == "Delta") {
     g <- map(mcwd.data, function(x) {
       x - mean.mcwd
     })

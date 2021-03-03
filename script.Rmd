@@ -76,14 +76,14 @@ mean.mcwd <- calc(mcwd.periodo.rasterbrick, fun = mean) # valor de referencia me
 (https://www.statisticshowto.com/probability-and-statistics/z-score/)
 
 ```{r}
-hh = "anomalia" # Mudar para calculo de 1) "delta" ou 2) "anomalia"
+hh = "Delta" # Mudar para calculo de 1) "Delta" ou 2) "Anomalia"
 
 r.mcwd <- delta.anom.mcwd(mcwd.periodo, hh)
 r.mcwd <- brick(r.mcwd[names(r.mcwd)]) %>% raster::mask(area.raster)
 ```
 
 Extrair dados de mcwd para coordenadas 
-```{r}
+```{r eval=FALSE, include=FALSE}
 df <- read.csv("md_example.csv", sep = ";") # coordenadas
 df <- df %>% mutate_at(c("Longitude.Decimal", "Latitude.Decimal"), function(x) x + 0.000001) # tonar cooordenadas mais precisas
 
@@ -97,7 +97,7 @@ map_df(xx, extract, SpatialPoints(tt)) %>% mutate(Plot.Code = df$Plot.Code) %>% 
 ```
 
 # Exportar 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # salvar geotif com varias bandas (configure o objeto 'hh' de acordo) delta ou anomalia
 writeRaster(r.mcwd, filename = paste("maps/", "mcwd.", hh, ".grid.tif", sep = ""), format = "GTiff", overwrite =  TRUE, options = c("INTERLEAVE=BAND", "COMPRESS=LZW"))
 
@@ -130,25 +130,36 @@ plot(r.mcwd$X2015, col = tcoi(7), main = paste(hh, "de mcwd para 2015"), ylim = 
 ```
 
 
-```{r message=FALSE, warning=FALSE, dpi=600}
+```{r message=FALSE, warning=FALSE}
 world.shp = rgdal::readOGR("base_layers/world_shp/world.shp")
 proj4string(world.shp) = CRS("+proj=longlat +datum=WGS84")
 
 # grafico de delta ou anomalias
-levelplot(r.mcwd, at =  unique(seq(min(r.mcwd@data@min), max(r.mcwd@data@max), length = 50)), ylim=c(-20,15), xlim=c(-80.9, -41.9), 
+plot1 <- levelplot(r.mcwd, at =  unique(seq(min(r.mcwd@data@min), max(r.mcwd@data@max), length = 50)), ylim=c(-20,15), xlim=c(-80.9, -41.9), 
           panel = function(...){
             panel.levelplot(...)
             sp.lines(world.shp, col = "dimgrey", lwd = 0.5)
           },
           col.regions = viridis(100), 
-          names.attr=names(mcwd.periodo), main = hh)
+          names.attr=names(mcwd.periodo), main = ifelse(hh == "Delta", "Δ MCWD", "MCWD anomalia (z-score)"));plot1
 
 # grafico mcwd da area de interesse
-levelplot(mcwd.periodo.rasterbrick, at = unique(seq(0, min(mcwd.periodo.rasterbrick@data@min), length = 50)), ylim = c(-20,15), xlim = c(-80.9, -41.9), 
+plot2 <- levelplot(mcwd.periodo.rasterbrick, at = unique(seq(0, min(mcwd.periodo.rasterbrick@data@min), length = 50)), ylim = c(-20,15), xlim = c(-80.9, -41.9), 
           panel = function(...){
             panel.levelplot(...)
             sp.lines(world.shp, col = "dimgrey", lwd = 0.5)
           },
           col.regions = paleta(abs(min(mcwd.periodo.rasterbrick@data@min)/10)), 
-          names.attr = names(mcwd.periodo))
+          names.attr = names(mcwd.periodo), main = "MCWD");plot2
+
+
+# tiff(paste(hh, sep = "", ".tif"), family = "ArialMT", units = "cm",
+#      width = 17.35, height = 23.35, pointsize = 12, res = 300, compression = "lzw")
+# print(plot1)
+# dev.off()
+# 
+# tiff("mcwd.tif", family = "ArialMT", units = "cm",
+#      width = 17.35, height = 23.35, pointsize = 12, res = 300, compression = "lzw")
+# print(plot2)
+# dev.off()
 ```
