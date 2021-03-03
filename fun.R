@@ -32,7 +32,7 @@ min(result, na.rm=T)
 }
 
 mcwd.f3 <- function(x){
-  data.table(tem = temp, grp = temp <= 100)[, sum(tem - 100), by=.(grp, rleid(grp))][,3] %>% min()
+  data.table(tem = temp, grp = temp <= 100)[, sum(tem - 100), by = .(rleid(grp))][,2] %>% min()
 }
 
 raster.TRMM <- function(x) {
