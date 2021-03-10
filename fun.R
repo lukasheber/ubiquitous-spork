@@ -34,11 +34,7 @@ min(result, na.rm=T)
 # As duas funções abaixo para calcular mcwd são de minha autoria; elas são mais lentas que as outras acima. Mantenho elas aqui para arquivamento
 
 mcwd.f3 <- function(x){
-<<<<<<< HEAD
   data.table(tem = x, grp = x <= 100)[, sum(tem - 100), by =.(rleid(grp))][, min(V1)] # eu queria algo em uma linha
-=======
-  data.table(tem = x, grp = x <= 100)[, sum(tem - 100), by=.(rleid(grp))][, min(V1)] # eu queria algo em uma linha
->>>>>>> 9e39c89df3333bdd1ebc90bbfcc1124e9553bb96
 }
 
 mcwd.f4 <- function(x){
@@ -46,7 +42,6 @@ mcwd.f4 <- function(x){
   names(t1) <- rleidv(t1 <= 0)
   split(t1, names(t1)) %>% map_dbl(sum) %>% min()
 }
-
 
 ######
 raster.TRMM <- function(x) {
