@@ -23,6 +23,7 @@ library(rasterVis)
 library(viridis)
 library(data.table)
 library(furrr)
+library(ncdf4)
 ```
 
 #carregar algumas funções e configurar plano para processamento paralelo

@@ -36,11 +36,11 @@ mcwd.f3 <- function(x){
 }
 
 raster.TRMM <- function(x) {
-  nc <- ncdf4::nc_open(x)
-  nc.long.TRMM <- ncdf4::ncvar_get(nc,nc$dim[[1]])
-  nc.lat.TRMM <- ncdf4::ncvar_get(nc,nc$dim[[2]])
-  data <-ncdf4::ncvar_get(nc,'precipitation')
-  data <-data[nrow(data):1,]
+  nc <- nc_open(x)
+  nc.long.TRMM <- ncvar_get(nc,nc$dim[[1]])
+  nc.lat.TRMM <- ncvar_get(nc,nc$dim[[2]])
+  data <- ncvar_get(nc,'precipitation')
+  data <- data[nrow(data):1,]
   
   TRMM <- raster::raster(x = as.matrix(data), xmn = nc.long.TRMM[1], xmx = nc.long.TRMM[NROW(nc.long.TRMM)], ymn = nc.lat.TRMM[1], ymx = nc.lat.TRMM[NROW(nc.lat.TRMM)], crs = sp::CRS('+proj=longlat +datum=WGS84'))
   return(TRMM)
