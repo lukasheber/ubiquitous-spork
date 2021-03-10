@@ -36,15 +36,15 @@ plan(multisession, workers = availableCores()-1)
 # Obter caminho dos arquivos de precipitação (.nc4) e escolher o periodo considerado 
 trmm_periodo <- dir.TRMM(inicio.periodo = 0) # numero refere-se ao primeiro mês de um periodo de 12 meses;i.e. jan-dez = 0  ou, fev-jan = 1
 
-#periodos com 12 meses incompletos de dados de precipitação
-(periodo_curto <-future_map_dbl(trmm_periodo, nrow) %>% `[`(. != 12))
-
 # empilhar os arquivos de precipição em cada periodo de 12 meses
 pilha <- stack.TRMM(trmm_periodo) # a precipitação foi convertida em mm por mês
 
-pilha <- pilha[names(pilha) %in% names(periodo_curto) == FALSE] # remover periodos com precipitação incompleta (menos que doze meses). Retorna 'named numeric(0)' se nenhum mês é removido.
+#Procurar por periodos com 12 meses incompletos de dados de precipitação
+periodo_curto <- future_map_dbl(trmm_periodo, nrow) %>% `[`(. != 12)
 
-# calcular mcwd para cada periodo (usa 100 por padrão para evapotranspiraçaõ)
+pilha <- pilha[names(pilha) %in% names(periodo_curto) == FALSE] # remover periodos com precipitação incompleta (menos que doze meses).
+
+# calcular mcwd para cada periodo (usa 100 por padrão para evapotranspiração)
 mcwd.periodo <- future_map(pilha, calc, mcwd.f2, .options = furrr_options(seed = TRUE))
 ```
 
