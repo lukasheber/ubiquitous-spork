@@ -31,14 +31,24 @@ mcwd.f2 = function(x){ #https://github.com/celsohlsj/RasterMCWD/blob/master/MCWD
 min(result, na.rm=T)
 }
 
+# As duas funções abaixo para calcular mcwd são de minha autoria; elas são mais lentas que as outras acima. Mantenho elas aqui para arquivamento
+
 mcwd.f3 <- function(x){
-  data.table(tem = x, grp = x <= 100)[, sum(tem - 100), by=.(rleid(grp))][, min(V1)]
+  data.table(tem = x, grp = x <= 100)[, sum(tem - 100), by =.(rleid(grp))][, min(V1)] # eu queria algo em uma linha
 }
 
+mcwd.f4 <- function(x){
+  t1 <- x - 100
+  names(t1) <- rleidv(t1 <= 0)
+  split(t1, names(t1)) %>% map_dbl(sum) %>% min()
+}
+
+
+######
 raster.TRMM <- function(x) {
   nc <- nc_open(x)
-  nc.long.TRMM <- ncvar_get(nc,nc$dim[[1]])
-  nc.lat.TRMM <- ncvar_get(nc,nc$dim[[2]])
+  nc.long.TRMM <- ncvar_get(nc, nc$dim[[1]])
+  nc.lat.TRMM <- ncvar_get(nc, nc$dim[[2]])
   data <- ncvar_get(nc,'precipitation')
   data <- data[nrow(data):1,]
   
@@ -52,7 +62,7 @@ stack.TRMM <- function(y) {
   return(stal)
 }
 
-# Obter caminho dos arquivos de precipitação (.nc4) e escolher o periodo considerado. numero refere-se ao ultimo mês de um periodo de 12 meses; i.e. se oct-sept = 9; ou, jan-feb = 0 ou qualquer valor entre 0 e 12.
+# Obter caminho dos arquivos de precipitação (.nc4) e escolher o periodo considerado.
 dir.TRMM <- function(inicio.periodo){
   f <- data.frame(file.name = list.files(pattern ="*.nc4", recursive = TRUE))
   f <- mutate(f, date = ymd(str_extract(file.name, "[0-9]{8}")))
