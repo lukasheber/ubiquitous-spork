@@ -22,11 +22,13 @@ library(lubridate)
 library(rasterVis)
 library(viridis)
 library(data.table)
+library(furrr)
 ```
 
-#carregar algumas funções
+#carregar algumas funções e configurar plano para processamento paralelo
 ```{r}
 source("fun.R")
+plan(multiprocess, workers = availableCores()-1)
 ```
 
 # criar stack raster dos meses dos periodos, e calcular mcwd
@@ -35,7 +37,7 @@ source("fun.R")
 trmm_periodo <- dir.TRMM(inicio.periodo = 0) # numero refere-se ao primeiro mês de um periodo de 12 meses;i.e. jan-dez = 0  ou, fev-jan = 1
 
 #periodos com 12 meses incompletos de dados de precipitação
-(periodo_curto <- map_dbl(trmm_periodo, nrow) %>% `[`(. != 12))
+(periodo_curto <-future_map_dbl(trmm_periodo, nrow) %>% `[`(. != 12))
 
 # empilhar os arquivos de precipição em cada periodo de 12 meses
 pilha <- stack.TRMM(trmm_periodo) # a precipitação foi convertida em mm por mês
@@ -43,7 +45,7 @@ pilha <- stack.TRMM(trmm_periodo) # a precipitação foi convertida em mm por m�
 pilha <- pilha[names(pilha) %in% names(periodo_curto) == FALSE] # remover periodos com precipitação incompleta (menos que doze meses). Retorna 'named numeric(0)' se nenhum mês é removido.
 
 # calcular mcwd para cada periodo (usa 100 por padrão para evapotranspiraçaõ)
-mcwd.periodo <- map(pilha, calc, mcwd.f2)
+mcwd.periodo <- future_map(pilha, calc, mcwd.f2, .options = furrr_options(seed = TRUE))
 ```
 
 # criar mascara da area de interese (i.e. amazonia, brazil, cerrado etc)
@@ -89,11 +91,11 @@ df <- df %>% mutate_at(c("Longitude.Decimal", "Latitude.Decimal"), function(x) x
 
 tt <- sp::SpatialPointsDataFrame(coords = data.frame(df$Longitude.Decimal, df$Latitude.Decimal), data = data.frame(df$Plot.Code), proj4string = CRS("+proj=longlat +datum=WGS84"))
 
-map_df(mcwd.periodo, extract, SpatialPoints(tt)) %>% mutate(Plot.Code = df$Plot.Code) %>% write.csv(file = "mcwd_anual_coord.csv")
+future_map_dfr(mcwd.periodo, extract, SpatialPoints(tt), .options = furrr_options(seed = TRUE)) %>% mutate(Plot.Code = df$Plot.Code) %>% write.csv(file = "mcwd_anual_coord.csv")
 
 xx <- as.list(r.mcwd)
 names(xx) <- gsub("X", "", names(r.mcwd))
-map_df(xx, extract, SpatialPoints(tt)) %>% mutate(Plot.Code = df$Plot.Code) %>% write.csv(file = paste("mcwd_", hh, "_coord.csv", sep = ""))
+future_map_dfr(xx, extract, SpatialPoints(tt), .options = furrr_options(seed = TRUE)) %>% mutate(Plot.Code = df$Plot.Code) %>% write.csv(file = paste("mcwd_", hh, "_coord.csv", sep = ""))
 ```
 
 # Exportar 

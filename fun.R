@@ -47,8 +47,8 @@ raster.TRMM <- function(x) {
 }
 
 stack.TRMM <- function(y) {
-  raster.all <- map(y, ~map2((pull(.x, file.name)), (pull(.x, n.days)), function(.x, .y){raster.TRMM(.x)*24*.y}))
-  stal <- map(raster.all, function(x){stack(x)})
+  raster.all <- future_map(y, ~future_map2((pull(.x, file.name)), (pull(.x, n.days)), function(.x, .y){raster.TRMM(.x)*24*.y}, .options = furrr_options(seed = TRUE)), .options = furrr_options(seed = TRUE))
+  stal <- future_map(raster.all, function(x){stack(x)}, .options = furrr_options(seed = TRUE))
   return(stal)
 }
 
@@ -67,13 +67,13 @@ dir.TRMM <- function(inicio.periodo){
 delta.anom.mcwd <- function(mcwd.data = NULL, hh = c("Delta", "Anomalia"))
 {
   if (hh == "Delta") {
-    g <- map(mcwd.data, function(x) {
+    g <- future_map(mcwd.data, function(x) {
       x - mean.mcwd
-    })
+    }, .options = furrr_options(seed = TRUE))
   } else{
-    g <- map(mcwd.data, function(x) {
+    g <- future_map(mcwd.data, function(x) {
       (x - mean.mcwd) / sd.mcwd
-    })
+    }, .options = furrr_options(seed = TRUE))
   }
   return(g)
 }
