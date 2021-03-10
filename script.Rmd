@@ -52,7 +52,7 @@ mcwd.periodo <- future_map(pilha, calc, mcwd.f2, .options = furrr_options(seed =
 # criar mascara da area de interese (i.e. amazonia, brazil, cerrado etc)
 ```{r}
 shp_area <- st_read("base_layers/Amazonia Legal/UFS_AMZLEG_LLWGS84.shp") # exemplo com shape da amazonia legal
-shp_area <- st_set_crs(shp_area, "WGS84") 
+shp_area <- st_set_crs(shp_area, "WGS84")
 area.raster <- rasterize(shp_area, mcwd.periodo[[1]])
 area.raster <- calc(area.raster, fun = function(x) x.temp = ifelse(x >= 1, 1, NA))
 ```
