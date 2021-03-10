@@ -36,6 +36,8 @@ mcwd.f3 <- function(x){
 }
 
 raster.TRMM <- function(x) {
+  if(!require(ncdf4)) {message("installing the 'ncdf4' package")
+    install.packages("ncdf4")}
   nc <- ncdf4::nc_open(x)
   nc.long.TRMM <- ncdf4::ncvar_get(nc,nc$dim[[1]])
   nc.lat.TRMM <- ncdf4::ncvar_get(nc,nc$dim[[2]])
